@@ -1,0 +1,63 @@
+title: rw.md
+author: Rich Warren
+description: > # this means to ignore newlines until "show_exerpts:"
+  Hi, I'm Rich Warren. Welcome to my blog where I hope to share my thoughts about Offensive Security Research, 
+  Vulnerabilities & Red Teaming. I hope you find it interesting :)
+
+
+show_excerpts: true # set to true to show excerpts on the homepage
+
+paginate: 1
+paginate_path: "/blog/page:num/"
+
+tag_permalink_style: pretty
+tag_page_layout: tag_page
+tag_page_dir: tag
+
+# jekyll-dash date format
+# refer to http://shopify.github.io/liquid/filters/date/ if you want to customize this
+dash:
+  # the way how dates should be displayed
+  date_format: "%b %-d, %Y"
+
+  # (optional) discqus comment configuration
+  #disqus:
+  #  shortname: rw.md
+
+  # generate social links in footer
+  # supported colors: green, red, orange, blue, cyan, pink, teal, yellow, indigo, purple
+  social_links:
+    - url: https://twitter.com/buffaloverflow
+      icon: twitter-square
+      color: cyan
+    - url: https://github.com/rxwx
+      icon: github-square
+      color: pink
+    - url: https://infosec.exchange/@buffaloverflow
+      icon: mastodon
+      color: purple
+
+  # wether the author box should be displayed
+  show_author: true
+
+  # the animation speed of the scroll-in effect
+  animation_speed: 50
+
+  # wether to enable Right-to-Left support or not
+  rtl: false
+
+  # Replaces the default avatar provider (gravatar)
+  avatar_source: github
+  github_username: rxwx
+  #avatar_source: local
+  #avatar_path: /assets/avatar.png
+
+# Build settings
+theme: jekyll-dash
+
+plugins:
+ - jekyll-feed
+ - jekyll-seo-tag
+ - jekyll-paginate
+ - liquid-md5
+# - jekyll/tagging
