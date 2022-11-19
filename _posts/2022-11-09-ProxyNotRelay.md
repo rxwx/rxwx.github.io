@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  ProxyNotShellRelay
+title:  ProxyNotRelay
 tags: vuln exploit 0day exchange
 ---
 
@@ -131,7 +131,7 @@ This code looks very similar to how it was before (if not identical). So why can
 
 ![Frontend Request to Backend Containing X-CommonAccessToken ](/public/media/Frontend-X-CommonAccessToken.png)
 
-To verify our understanding, lets modify a request sent from the Frontend to the Backend, by removing the `X-CommonAccessToken` header and inserting a forged `X-Rps-CAT` token in the URL. To make things clear, I’ve forged the token to contain the fake username `VULCORP\impacket`. As shown in the following screenshot, simply by removing the `X-CommonAccessToken` header, we are able to use `X-Rps-CAT` again!
+To verify our understanding, let's modify a request sent from the Frontend to the Backend, by removing the `X-CommonAccessToken` header and inserting a forged `X-Rps-CAT` token in the URL. To make things clear, I’ve forged the token to contain the fake username `VULCORP\impacket`. As shown in the following screenshot, simply by removing the `X-CommonAccessToken` header, we are able to use `X-Rps-CAT` again!
 
 ![Forged Token Accepted](/public/media/X-RPS-Cat-working.png)
 
@@ -240,7 +240,7 @@ What about if the client doesn't support Channel Binding and thus never sends CB
 
 If you'd like to know more about CBT, SPNs and how they affect NTLM relaying, I highly recommend [this article](https://en.hackndo.com/ntlm-relay/) by [@HackAndDo](https://twitter.com/HackAndDo), which explains the concepts better than I could.
 
-To verify my understanding. I made this [quick script]([Dump CBT Data in Python (github.com)](https://gist.github.com/rxwx/8476acf1f2ca8727c8d356ea26291354)), which just hooks the `ntlm-auth` and `requests-ntlm` Python modules so that we can dump out the CBT data. Using this we can see that when using CBT, the MD5 hash of the server's certificate is sent in the NTLM auth data.
+To verify my understanding. I made this [quick script](https://gist.github.com/rxwx/8476acf1f2ca8727c8d356ea26291354)), which just hooks the `ntlm-auth` and `requests-ntlm` Python modules so that we can dump out the CBT data. Using this we can see that when using CBT, the MD5 hash of the server's certificate is sent in the NTLM auth data.
 
 ![Dumping CBT Data from NTLM Auth Request with Python](/public/media/cbt-data-dump.png)
 
@@ -261,7 +261,7 @@ Why is this bad? Well, due to the the specifc exclusion for Autodiscover, it all
 
 ## EPA for EWS
 
-Additionally, as EWS and ActiveSync are currently still set to `Allow` (equivalent of `Accept` in the previous description) - this means that if we're relaying from SMB, there will never be any CBT data sent by the client and relaying to those services is also still possible. However for ActiveSync this is unlikely since the [default authentication method is Basic](https://learn.microsoft.com/en-us/exchange/clients/default-virtual-directory-settings?view=exchserver-2019). Let's verify that quickly with EWS, by sending a request without CBT:
+Additionally, as EWS and ActiveSync are currently still set to `Allow` (equivalent of `Accept` in the previous description) - this means that if we're relaying from SMB, there will never be any CBT data sent by the client and relaying to those services might still be possible. However for ActiveSync this is unlikely since the [default authentication method is Basic](https://learn.microsoft.com/en-us/exchange/clients/default-virtual-directory-settings?view=exchserver-2019). Let's verify that quickly with EWS, by sending a request without CBT:
 
 ![Sending NTLM authentication to EWS with no CBT](/public/media/ews-no-cbt.png)
 
@@ -294,6 +294,8 @@ To summarise, Extended Protection does not currently protect against NTLM relayi
 Now that we have a strategy for relaying NTLM between two Exchange servers, a bypass for the IIS URL rewrite and a bypass of Extended Protection, let's wrap it up in an `ntmlrelayx` module and take it for a spin!
 
 To achieve this I had to port `pypsrp` and `requests` into impacket's `ntlmrelayx.py`, which involved creating a custom `requests` adapter where I could supply the relayed TCP socket, and also override some functionality in `pypsrp`, `requests` and `urllib` to support sending raw bytes in the HTTP request. I won't go into the boring details here, but will release the code once folks have had a chance to install the patch.
+
+**Update**: Proof of Concept is available [here](https://github.com/rxwx/impacket).
 
 Now we can run `ntlmrelayx.py` with the new `--exchange-powershell` module and the `--bypass` flag and we should get some output from `Get-Mailbox` cmdlet, running as Domain Admin!
 
@@ -341,7 +343,7 @@ So after some limited testing I came to the conclusion that AMSI is the best mit
 
 ### An Alternative IIS Rewrite Approach
 
-I had this idea, which I posted in a [Twitter thread](https://twitter.com/buffaloverflow/status/1581690003339767808). Instead of tryring to rewrite IIS requests on the Frontend, why not do it on the backend instead? That way we have more control of the data, and can process things like headers that are sent by the Frontend, for example.
+I had this idea, which I posted in a [Twitter thread](https://twitter.com/buffaloverflow/status/1581690003339767808). Instead of trying to rewrite IIS requests on the Frontend, why not do it on the backend instead? That way we have more control of the data, and can process things like headers that are sent by the Frontend, for example.
 
 The idea is basically that instead of trying to block-list bad requests, we can instead allow-list based on the `msExchProxyUri` which is sent by the Frontend.
 
@@ -357,7 +359,7 @@ The caveat is that I haven't tried this in a production environment, so YMMV!
 
 ![IIS Backend Rewrite](/public/media/backend-rewrite.jpg)
 
-_Note 09/11/22 - Indeed it seems like MS implemented something similar to this directly within Exchange to detect cross Virtual Directory requests_
+_Note 09/11/22 - Indeed it seems like MS implemented something similar to this directly within Exchange to detect cross Virtual Directory requests_.
 
 ### The Patches
 

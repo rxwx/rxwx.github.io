@@ -33,7 +33,7 @@ dash:
     - url: https://github.com/rxwx
       icon: github-square
       color: pink
-    - url: https://infosec.exchange/@buffaloverflow
+    - url: https://infosec.exchange/@buffaloverflow" rel="me
       icon: mastodon
       color: purple
 
