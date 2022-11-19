@@ -70,7 +70,7 @@ Let’s fire this and see what happens:
 
 Ok, so we’re running as a low-privileged user here. Whilst low-privileged users _do_ have access to run PowerShell cmdlets. Their access is limited to a subset of cmdlets, which generally match the functionality available to the user through ECP/OWA. I wrote a quick script to attempt to enumerate a list of available cmdlets. (Caveat: this might not be a complete list, but) [this is what I came up with](https://gist.github.com/rxwx/47cd64b31241a9a487ebe1a255e90637).
 
-As you can see there’s still quite a few cmdlets listed there, and some such as [Get-App](https://learn.microsoft.com/en-us/powershell/module/exchange/get-app?view=exchange-ps) sound quite interesting. However, I had a quick look, didn’t find anything obvious and decided to move on. Perhaps someone did manage to get RCE via one of these cmdlets directly? Perhaps we'll cover this is future post :D
+As you can see there’s still quite a few cmdlets listed there, and some such as [Get-App](https://learn.microsoft.com/en-us/powershell/module/exchange/get-app?view=exchange-ps) sound quite interesting. However, I had a quick look, didn’t find anything obvious and decided to move on. Perhaps someone did manage to get RCE via one of these cmdlets directly? Perhaps we'll cover this in a future post :D
 
 To summarise, we can hit the backend with our own supplied credentials, and we can execute a subset of cmdlets, but what about running cmdlets as a high privileged user?
 
