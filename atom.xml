@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html class="direction--ltr"lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>rw.md | Hi, I’m Rich Warren. Welcome to my blog where I hope to share my thoughts about Offensive Security Research, Vulnerabilities &amp; Red Teaming. I hope you find it interesting :)</title>
+<meta name="generator" content="Jekyll v4.3.2" />
+<meta property="og:title" content="rw.md" />
+<meta name="author" content="Rich Warren" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Hi, I’m Rich Warren. Welcome to my blog where I hope to share my thoughts about Offensive Security Research, Vulnerabilities &amp; Red Teaming. I hope you find it interesting :)" />
+<meta property="og:description" content="Hi, I’m Rich Warren. Welcome to my blog where I hope to share my thoughts about Offensive Security Research, Vulnerabilities &amp; Red Teaming. I hope you find it interesting :)" />
+<meta property="og:site_name" content="rw.md" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="rw.md" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","author":{"@type":"Person","name":"Rich Warren"},"description":"Hi, I’m Rich Warren. Welcome to my blog where I hope to share my thoughts about Offensive Security Research, Vulnerabilities &amp; Red Teaming. I hope you find it interesting :)","headline":"rw.md","url":"/atom.xml"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="icon" type="image/png" href="/assets/favicon.png" />
+  <link rel="stylesheet" href="/assets/css/magnific-popup.css"><link type="application/atom+xml" rel="alternate" href="/feed.xml" title="rw.md" /><script src="https://code.jquery.com/jquery-3.2.0.min.js"></script> 
+  <script src="/assets/js/jquery.magnific-popup.js"></script>
+</head>
+<body><div class="site-header">
+  <div class="wrapper">
+    <a class="site-title" rel="author" href="/">rw.md<b class="command_prompt"></b><b class="blinking_cursor">_</b></a>
+    <span class="social_links">
+        
+        
+        <a class="color-cyan-hover" href="https://twitter.com/buffaloverflow"><i class="fab fa-twitter-square"></i></a>
+        
+        
+        
+        <a class="color-pink-hover" href="https://github.com/rxwx"><i class="fab fa-github-square"></i></a>
+        
+        
+        
+        <a class="color-purple-hover" href="https://infosec.exchange/@buffaloverflow" rel="me"><i class="fab fa-mastodon"></i></a>
+        
+        
+    </span>
+  </div>
+</div>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+ <title>rw.md</title>
+ <link href="/atom.xml" rel="self"/>
+ <link href="/"/>
+ <updated>2023-11-05T00:44:54+00:00</updated>
+ <id></id>
+ <author>
+   <name></name>
+   <email></email>
+ </author>
+
+ 
+ <entry>
+   <title>ProxyNotRelay</title>
+   <link href="/2022/11/09/ProxyNotRelay.html"/>
+   <updated>2022-11-09T00:00:00+00:00</updated>
+   <id>/2022/11/09/ProxyNotRelay</id>
+   <content type="html">&lt;h1 id=&quot;proxynotrelay---an-exchange-vulnerability-encore&quot;&gt;ProxyNotRelay - An Exchange Vulnerability Encore&lt;/h1&gt;
+
+&lt;p&gt;In this blog post we will dive into the latest Microsoft Exchange 0-day vulnerability, dubbed #ProxyNotShell, how it relates to other Exchange vulnerabilities and finally demonstrate how ProxyRelay can combined with ProxyNotShell, even with Extended Protection and IIS rewrite rules enabled.&lt;/p&gt;
+
+&lt;p&gt;However, before we jump in, I just want to clarify that the patches are &lt;a href=&quot;https://msrc.microsoft.com/update-guide/vulnerability/CVE-2022-41040&quot;&gt;now&lt;/a&gt; &lt;a href=&quot;https://msrc.microsoft.com/update-guide/vulnerability/CVE-2022-41082&quot;&gt;available&lt;/a&gt;. If you are running a vulnerable verison of Exchange - stop now and go and install the patches. Do not rely on the mitigations! I also wrote the majority of this post before the patches were released, so please save me the job of doing &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;sed s/\bis\b/\bwas\b/g blog.md&lt;/code&gt;! 😉&lt;/p&gt;
+
+&lt;h2 id=&quot;proxy-notshell&quot;&gt;Proxy (Not?) Shell&lt;/h2&gt;
+
+&lt;p&gt;In late September 2022, the &lt;a href=&quot;https://www.gteltsc.vn/blog/warning-new-attack-campaign-utilized-a-new-0day-rce-vulnerability-on-microsoft-exchange-server-12715.html&quot;&gt;GTSC team released an advisory&lt;/a&gt; stating that they had detected exploitation of a Microsoft Exchange 0-day vulnerability in the wild. Whilst not many details were immediately available, and there was some confusion about whether this &lt;em&gt;really was an unpatched 0-day,&lt;/em&gt; Microsoft later clarified that there was indeed two vulnerabilities being exploited to achieve RCE, in &lt;a href=&quot;https://msrc-blog.microsoft.com/2022/09/29/customer-guidance-for-reported-zero-day-vulnerabilities-in-microsoft-exchange-server/&quot;&gt;their own advisory&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;These vulnerabilities were given two CVE numbers.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://msrc.microsoft.com/update-guide/vulnerability/CVE-2022-41040&quot;&gt;CVE-2022–41040&lt;/a&gt;— An SSRF vulnerability (interestingly, in the advisory it’s described as Elevation of Privilege)&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://msrc.microsoft.com/update-guide/vulnerability/CVE-2022-41082&quot;&gt;CVE-2022–41082&lt;/a&gt;— A Remote Code Execution vulnerability in the PowerShell component&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Sounds &lt;a href=&quot;https://www.zerodayinitiative.com/blog/2021/8/17/from-pwn2own-2021-a-new-attack-surface-on-microsoft-exchange-proxyshell&quot;&gt;pretty familiar&lt;/a&gt; huh?&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/ProxyShell-CVEs.png&quot; alt=&quot;Extract from the ZDI blog for ProxyShell, detailing the three bugs used in the ProxyShell chain&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;In fact, if we have a look at the GTSC advisory, they state the same thing!&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/GTSC-advisory.png&quot; alt=&quot;Extract from the GTSC advisory stating that the request path is the same as ProxyShell&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;So from reading both the Microsoft and GTSC advisories we can ascertain that the ProxyShell path confusion is being used. But how? Wasn’t it patched under CVE-2021–34473?&lt;/p&gt;
+
+&lt;p&gt;Well, not exactly. In fact, the only change that was made to break the path-confusion was to make the Exchange front-end no longer automatically authenticate to the backend with the machine account.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/ProxyShell-diff.png&quot; alt=&quot;Orange’s ProxyShell blog showing SSRF patch&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The post-auth RCE was fixed by limiting the file extensions that can be used in mail exports. An interesting side note here is that the PST file write does in fact still work, but you can no longer control the file extension.&lt;/p&gt;
+
+&lt;p&gt;What this means is that the SSRF is still alive and well, however it’s now hitting the backend unauthenticated! I didn’t have a sample at the time, but made a bit of wild speculation that this was likely the candidate for the ITW exploit.&lt;/p&gt;
+
+&lt;center&gt;
+&lt;blockquote class=&quot;twitter-tweet&quot; data-lang=&quot;en&quot;&gt;
+    &lt;a href=&quot;https://twitter.com/buffaloverflow/status/1575756381650493440&quot;&gt;&lt;/a&gt;
+&lt;/blockquote&gt;
+&lt;/center&gt;
+&lt;script async=&quot;&quot; src=&quot;https://platform.twitter.com/widgets.js&quot; charset=&quot;utf-8&quot;&gt;&lt;/script&gt;
+
+&lt;p&gt;Other vulnerabilities notwithstanding, there are two ways in which an attacker could still abuse this:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;First they could simply send their own authentication. If the attacker has credentials, they could just authenticate with those. At which point they’d be able to hit any backend services that the user-account permissions allow. Either via Windows-authentication (i.e. NTLM), or with tokens.&lt;/li&gt;
+  &lt;li&gt;Secondly, they could attack any &lt;em&gt;unauthenticated&lt;/em&gt; backend endpoint.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Ignoring the post-auth RCE for now. Let’s have a look at how we can get the SSRF working against PowerShell again.&lt;/p&gt;
+
+&lt;p&gt;If we take the ProxyShell request of:&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;autodiscover/autodiscover.json?@asdf/powershell/?&amp;amp;Email=autodiscover/autodiscover.json%3f@asdf
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;We can plug that into the &lt;a href=&quot;https://github.com/jborean93/pypsrp&quot;&gt;pypsrp&lt;/a&gt; library, which provides a Python interface for PowerShell remoting. We’ll set the authentication method to NTLM in the WSMan constructor to prevent the server forcing us to use Kerberos, and finally open a RunspacePool, specifying the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Microsoft.Exchange&lt;/code&gt; configuration name, and running the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Get-Mailbox&lt;/code&gt; cmdlet.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;We have to use &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;add_cmdlet&lt;/code&gt; here instead of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;add_command&lt;/code&gt; or &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;add_script&lt;/code&gt;. This is because after previous Exchange vulnerabilities, Microsoft has hardened the PowerShell configuration to run in &lt;a href=&quot;https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_language_modes?view=powershell-7.2&quot;&gt;NoLanguage mode&lt;/a&gt;.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Let’s fire this and see what happens:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/pypsrp-request-1.png&quot; alt=&quot;NTLM Authentication with SSRF and PyPSRP&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;[+] Success&lt;/code&gt; - it works! We’ve confirmed that we can indeed hit the PowerShell backend via the ProxyShell SSRF, if we provide our own NTLM authentication.&lt;/p&gt;
+
+&lt;p&gt;Ok, so we’re running as a low-privileged user here. Whilst low-privileged users &lt;em&gt;do&lt;/em&gt; have access to run PowerShell cmdlets. Their access is limited to a subset of cmdlets, which generally match the functionality available to the user through ECP/OWA. I wrote a quick script to attempt to enumerate a list of available cmdlets. (Caveat: this might not be a complete list, but) &lt;a href=&quot;https://gist.github.com/rxwx/47cd64b31241a9a487ebe1a255e90637&quot;&gt;this is what I came up with&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;As you can see there’s still quite a few cmdlets listed there, and some such as &lt;a href=&quot;https://learn.microsoft.com/en-us/powershell/module/exchange/get-app?view=exchange-ps&quot;&gt;Get-App&lt;/a&gt; sound quite interesting. However, I had a quick look, didn’t find anything obvious and decided to move on. Perhaps someone did manage to get RCE via one of these cmdlets directly? Perhaps we’ll cover this in a future post :D&lt;/p&gt;
+
+&lt;p&gt;To summarise, we can hit the backend with our own supplied credentials, and we can execute a subset of cmdlets, but what about running cmdlets as a high privileged user?&lt;/p&gt;
+
+&lt;p&gt;This got me thinking - the server accepts NTLM on the backend (we skip the frontend constraint due to SSRF), so what about NTLM relay?&lt;/p&gt;
+
+&lt;p&gt;If we can coerce authentication from another Exchange server and relay the machine account NTLM authentication via the SSRF, we should be back with a primitive similar to the original ProxyShell vulnerability!&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;First, some important credits:&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;I’d recollected that something similar had been mentioned by Yuhao Weng and Zhiniang Peng in their “Exploit Exchange in new Ways” &lt;a href=&quot;https://twitter.com/POC_Crew/status/1517022633493430272&quot;&gt;Zer0con&lt;/a&gt; talk. However, as far as I’m aware, the full slides were never published.&lt;/p&gt;
+
+&lt;p&gt;They mentioned &lt;a href=&quot;https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-33768&quot;&gt;CVE-2021–33768&lt;/a&gt;, and ProxyRelay in their talk. If we check the patch notes for CVE-2021–33768, this was credited to &lt;a href=&quot;https://twitter.com/orange_8361&quot;&gt;Orange Tsai&lt;/a&gt; and &lt;a href=&quot;https://twitter.com/D1iv3&quot;&gt;Dlive&lt;/a&gt;. In fact, Orange finally released the &lt;a href=&quot;https://devco.re/blog/2022/10/19/a-new-attack-surface-on-MS-exchange-part-4-ProxyRelay/&quot;&gt;blog post for ProxyRelay&lt;/a&gt; in October 2022, not long after I started this research, so it was very helpful! It’s fantastic research and I suggest if you haven’t read it yet you should go and read it!&lt;/p&gt;
+
+&lt;p&gt;In the Zer0con talk they also mentioned &lt;a href=&quot;https://msrc.microsoft.com/update-guide/en-US/vulnerability/CVE-2021-26427&quot;&gt;CVE-2021–26427&lt;/a&gt;, which was a BinaryFormatter deserialization vulnerability in the DAG replication service running on TCP port 64327 — also using the NTLM relay technique! Checking the patch notes on this one, it was credited to MSRC and the NSA.&lt;/p&gt;
+
+&lt;p&gt;Ok, back to NTLM relay ..&lt;/p&gt;
+
+&lt;h4 id=&quot;ntlm-authentication&quot;&gt;NTLM Authentication&lt;/h4&gt;
+
+&lt;p&gt;To test whether the server will accept NTLM relay, we’ll first do a very quick test to see if we can authenticate with the machine account of Exchange. Since we don’t know the plaintext password of the Exchange server, we’ll cheat here and use Pass-the-Hash (you can dump the server’s hash using mimikatz’ &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;sekurlsa::msv&lt;/code&gt; module).&lt;/p&gt;
+
+&lt;p&gt;Thankfully the &lt;a href=&quot;https://github.com/jborean93/pyspnego&quot;&gt;pyspnego&lt;/a&gt; module, which is used by pypsrp, has &lt;a href=&quot;https://github.com/jborean93/pypsrp/issues/77&quot;&gt;support&lt;/a&gt; for pass-the-hash - so we can simply modify our previous test-case to pass in the Exchange server machine account hash:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/pypsrp-request-2.png&quot; alt=&quot;Pass-the-Hash Failure&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Hmm, it seems to fail with the message:&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;The operation couldn’t be performed because ‘VULNCORP\EXCHANGE2$’ couldn’t be found
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;That’s a bit of a cryptic message. Let’s fire up Burp on the Exchange backend and see what’s happening:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/exchange-backend-error.png&quot; alt=&quot;Exchange Backend Error&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Indeed it shows that same error in the Receive message. It also shows the failure category &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;AuthZ-CmdletAccessDeniedException&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;If we take a step back and look at the WSMan Create message response, we can see that a RunSpace Pool was successfully created for the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;EXCHANGE2$&lt;/code&gt; user:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/wsman-create-request.png&quot; alt=&quot;WSMan Create Request and Response&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;So we &lt;em&gt;are&lt;/em&gt; authenticating successfully with the machine account, it just doesn’t have any cmdlet permissions!&lt;/p&gt;
+
+&lt;p&gt;So you may be thinking that this is bad news. Surely if we perform an NTLM relay attack, we’re not going to be able to actually execute any cmdlets? It certainly seems so, but before we give up let’s go back to ProxyShell..&lt;/p&gt;
+
+&lt;h4 id=&quot;privilege-de-escalation&quot;&gt;Privilege De-escalation&lt;/h4&gt;
+
+&lt;p&gt;If you remember from Orange’s writeup, they were able to abuse another vulnerability, &lt;a href=&quot;https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34523&quot;&gt;CVE-2021–34523&lt;/a&gt; to effectively “downgrade” the machine account SYSTEM context to that of an administrative domain user.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/ProxyShell-blog-X-Rps-CAT.png&quot; alt=&quot;Extract from ProxyShell blog showing X-Rps-CAT Privilege Escalation Technique&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;So prior to CVE-2021-34523, it was possible to impersonate any user by sending an &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-Rps-CAT&lt;/code&gt; parameter in the query string with a forged &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;CommonAccessToken&lt;/code&gt;. Let’s have a look again at the code for handling &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-Rps-CAT&lt;/code&gt;:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/OnAuthenticateRequest.png&quot; alt=&quot;OnAuthenticateRequest Source Code&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;This code looks very similar to how it was before (if not identical). So why can we not just do the same thing? If we examine the code, the first thing it does is check if there is already an &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-CommonAccessToken&lt;/code&gt; header set in the backend request. If we go and check in burp we can see that the frontend already inserted an &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-CommonAccessToken&lt;/code&gt; header into the proxied request, so the backend will never attempt to use the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-Rps-CAT&lt;/code&gt; token.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/Frontend-X-CommonAccessToken.png&quot; alt=&quot;Frontend Request to Backend Containing X-CommonAccessToken &quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;To verify our understanding, let’s modify a request sent from the Frontend to the Backend, by removing the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-CommonAccessToken&lt;/code&gt; header and inserting a forged &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-Rps-CAT&lt;/code&gt; token in the URL. To make things clear, I’ve forged the token to contain the fake username &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;VULCORP\impacket&lt;/code&gt;. As shown in the following screenshot, simply by removing the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-CommonAccessToken&lt;/code&gt; header, we are able to use &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-Rps-CAT&lt;/code&gt; again!&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/X-RPS-Cat-working.png&quot; alt=&quot;Forged Token Accepted&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Now we know how and why the the old &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-Rps-CAT&lt;/code&gt; elevation of privilege can’t be used now, since we have no control over the Frontend adding the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-CommonAccessToken&lt;/code&gt; header.. but do we? What about if we supply our own header? Let’s look at the code.&lt;/p&gt;
+
+&lt;p&gt;In &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ProxyRequestHandler.cs&lt;/code&gt;, in the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;AddProtocolSpecificHeadersToServerRequest&lt;/code&gt; function we can see the following code. This code is executed on the Frontend. First it checks if the request is authenticated and if the request headers contain the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-CommonAccessToken&lt;/code&gt; header. If so, it will attempt to deserialize the token. If this token turns out to be a &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SYSTEM&lt;/code&gt; or Machine account, it raises a 400 error.&lt;/p&gt;
+
+&lt;p&gt;After this, it checks the identity of the calling user (i.e. the user that authenticated in the Frontend HTTP request). If the user is &lt;em&gt;not&lt;/em&gt; &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SYSTEM&lt;/code&gt; or a Machine account, it also bails with a 400 error.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/AddProtocolSpecificHeadersToServerRequest.png&quot; alt=&quot;AddProtocolSpecificHeadersToServerRequest Function&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;What do the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IsSystemOrMachineAccount&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IsSystemOrTrustedMachineAccount&lt;/code&gt; functions actually do? (despite their names making it fairly obvious!).&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IsSystemOrMachineAccount&lt;/code&gt; — simply checks if some properties of the deserialized access token match that of a &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SYSTEM&lt;/code&gt; or Machine account, e.g. the SID is the well-known SID of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SYSTEM&lt;/code&gt;, the account name ends with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;$&lt;/code&gt; or the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LogonName&lt;/code&gt; is 0.&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IsSystemOrTrustedMachineAccount&lt;/code&gt; — Checks whether the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IsSystem&lt;/code&gt; property of the WindowsIdentity is set to true OR if the Identity name ends with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;$&lt;/code&gt; AND the identity has the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ms-Exch-EPI-Token-Serialization&lt;/code&gt; extended right in AD.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;If both checks are passed (i.e. the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-CommonAccessToken&lt;/code&gt; token is &lt;em&gt;not&lt;/em&gt; for a machine account, but the caller &lt;em&gt;is&lt;/em&gt; a machine account), it will go ahead and forward the token to the backend. Bingo! We can pass both checks because:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;We can specify whatever we want in the token because there are no integrity checks (even make up the user-account name as long as the SID is correct).&lt;/li&gt;
+  &lt;li&gt;We will be connecting under the context of the (relayed) machine account from another Exchange server. Exchange servers by default have the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ms-Exch-EPI-Token-Serialization&lt;/code&gt; extended right.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h4 id=&quot;putting-it-alltogether&quot;&gt;Putting it All Together&lt;/h4&gt;
+
+&lt;p&gt;So putting it all together we need to:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Trigger authentication on a second Exchange server (lets call it &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;EXCHANGE1&lt;/code&gt;).&lt;/li&gt;
+  &lt;li&gt;Relay the authentication to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;EXCHANGE2&lt;/code&gt;, but set our own &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-CommonAccessToken&lt;/code&gt; header, containing a forged token for any user on the domain (e.g. a Domain Administrator).&lt;/li&gt;
+  &lt;li&gt;Open a PowerShell session, and execute any cmdlet.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;But before we do this, we’ll need to collect some pre-requisites. You may remember from the ProxyShell exploit that we’ll need to gather some information that we’ll use later to forge the token. For example, we’ll need to collect:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;The hostname and FQDN of the server — this can be leaked from the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-FEServer&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-BEServer&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-CalculatedBETarget&lt;/code&gt; response headers from &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;/autodiscover/autodiscover/json&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Optionally, we might need to Legacy DN, which we can get from Autodiscover. This is only really needed if we’re using the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;/mapi/emsmdb&lt;/code&gt; SID leaking technique from ProxyLogon.&lt;/li&gt;
+  &lt;li&gt;The SID of the user we want to impersonate. Again we can leak this from MAPI — either using the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;/mapi/emsmdb&lt;/code&gt; technique used in ProxyLogon, or simply making an authenticated request to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;/mapi/nspi&lt;/code&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;An interesting thing to note here is that just like ProxyShell, the SSRF &lt;em&gt;is not limited&lt;/em&gt; to only the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;/powershell&lt;/code&gt; endpoint. You can hit any backend service with it, especially if you’re providing the (relayed) auth. For example, you could hit EWS on the backend, and impersonate any user thanks to our &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SYSTEM&lt;/code&gt; context. This makes it very convenient to gather all the info we need - but also worth noting because the Microsoft mitigations only target the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;/powershell&lt;/code&gt; endpoint.&lt;/p&gt;
+
+&lt;p&gt;Let’s try that. For example, we could target EWS. In the below example, I sent relayed NTLM authentication via the SSRF to the EWS backend. In the request we can impersonate any user, simply by specifying their SID. For this demo, I impersonated the Domain Admin. In the ProxyShell chain, this trick was used to save a draft email in a user’s inbox (which was later exported via PowerShell, for RCE) - but you could do lots of other things, such as send an email, or exploit &lt;a href=&quot;https://peterjson.medium.com/some-notes-about-microsoft-exchange-deserialization-rce-cve-2021-42321-110d04e8852&quot;&gt;CVE-2021-42321&lt;/a&gt;!&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/ews-ssrf.png&quot; alt=&quot;EWS Request&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/draft-email.png&quot; alt=&quot;Draft Email Successfully Saved via ProxyNotRelay&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;mitigations&quot;&gt;Mitigations&lt;/h2&gt;
+
+&lt;h3 id=&quot;iis-rewrite&quot;&gt;IIS Rewrite&lt;/h3&gt;
+
+&lt;p&gt;When the ProxyNotShell advisory was first released by Microsoft, they also pushed out an IIS rewrite rule via the &lt;a href=&quot;https://learn.microsoft.com/en-us/exchange/exchange-emergency-mitigation-service?view=exchserver-2019&quot;&gt;Exchange Emergency Mitigation Service&lt;/a&gt;. This is a service that runs on Exchange 2016 and 2019 servers with the November 2021 SU and later. The idea is that if a security issue is identified, Microsoft can quickly push out mitigations to supported Exchange servers worldwide. It works pretty well as long as you are on a supported SU. For those that aren’t on a supported SU, or can’t use EEMS — they also provided a mitigation via the EOMTv2 PowerShell script, which implements the same IIS rewrite rule, as well as instructions on how to apply the rewrite rule manually.&lt;/p&gt;
+
+&lt;p&gt;The problem is, the rewrite rule didn’t take into account a number of scenarios, leading to multiple bypasses being discovered:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Firstly, &lt;a href=&quot;https://twitter.com/testanull/status/1576774007826718720&quot;&gt;Jang discovered&lt;/a&gt; that Microsoft Exchange’s own code allowed for the substitution of the @ symbol with .. in the URL which bypassed the regex used.&lt;/li&gt;
+  &lt;li&gt;Microsoft released a second iteration of the rewrite rule, this was &lt;a href=&quot;https://twitter.com/honoki/status/1577644964628004867&quot;&gt;bypassed again&lt;/a&gt; using URL encoding.&lt;/li&gt;
+  &lt;li&gt;Another iteration of the IIS rule was released, but unfortunately this was also &lt;a href=&quot;https://twitter.com/GossiTheDog/status/1578522829963767809&quot;&gt;bypassable&lt;/a&gt;, as it was possible to specify the &lt;em&gt;powershell&lt;/em&gt; portion of the URL &lt;em&gt;prior&lt;/em&gt; to &lt;em&gt;/autodiscover.json&lt;/em&gt; (not aware of a PoC for this).&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;We’re now currently on the following rewrite rule — at the time of publishing:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/latest-rewrite-mitigation.png&quot; alt=&quot;Latest IIS URL Rewrite Mitigation&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;x-up-devcap-post-charset-bypass&quot;&gt;x-up-devcap-post-charset bypass&lt;/h4&gt;
+
+&lt;p&gt;As shown above, Microsoft implemented an IIS rewrite rule which now decodes the request URI using &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;UrlDecode&lt;/code&gt;. However as &lt;a href=&quot;https://twitter.com/irsdl/&quot;&gt;Soroush Dalili&lt;/a&gt; pointed out in a &lt;a href=&quot;https://twitter.com/irsdl/status/1581388036046487552&quot;&gt;Twitter thread&lt;/a&gt;, and several interesting &lt;a href=&quot;https://www.mdsec.co.uk/2021/09/nsa-meeting-proposal-for-proxyshell/&quot;&gt;blog&lt;/a&gt; &lt;a href=&quot;https://soroush.secproject.com/blog/2019/05/x-up-devcap-post-charset-header-in-aspnet-to-bypass-wafs-again/&quot;&gt;posts&lt;/a&gt; - this is still pretty fragile, and can be bypassed using the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;x-up-devcap-post-charset&lt;/code&gt; header to supply an alternative charset and hide the real URL!&lt;/p&gt;
+
+&lt;center&gt;
+&lt;blockquote class=&quot;twitter-tweet&quot; data-lang=&quot;en&quot;&gt;
+    &lt;a href=&quot;https://twitter.com/irsdl/status/1581388036046487552&quot;&gt;&lt;/a&gt;
+&lt;/blockquote&gt;
+&lt;/center&gt;
+&lt;script async=&quot;&quot; src=&quot;https://platform.twitter.com/widgets.js&quot; charset=&quot;utf-8&quot;&gt;&lt;/script&gt;
+
+&lt;p&gt;With a few tweaks can add this to our &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ntlmrelayx&lt;/code&gt; module to bypass the IIS rewrite mitigation!&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/ibm500-encoding-python.png&quot; alt=&quot;IBM 500 Encoding with Python&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;proxyrelay-mitigations&quot;&gt;ProxyRelay Mitigations&lt;/h3&gt;
+
+&lt;p&gt;In late October 2022, Orange released a &lt;a href=&quot;https://devco.re/blog/2022/10/19/a-new-attack-surface-on-MS-exchange-part-4-ProxyRelay/&quot;&gt;detailed blog post&lt;/a&gt; on the ProxyRelay issues. It turns out that despite reporting the issue back in June 2021, the full fix was not enabled completely until August 2022, and even then it required &lt;em&gt;manual intervention&lt;/em&gt; to enable.&lt;/p&gt;
+
+&lt;h4 id=&quot;extended-protection&quot;&gt;Extended Protection&lt;/h4&gt;
+
+&lt;p&gt;In terms of fixing ProxyRelay, Microsoft first released an update to support Extended Protection in the Microsoft Exchange CU in April 2022. However the feature wasn’t enabled until the August SU, when the &lt;a href=&quot;https://techcommunity.microsoft.com/t5/exchange-team-blog/released-august-2022-exchange-server-security-updates/ba-p/3593862&quot;&gt;documentation was published&lt;/a&gt; detailing the mitigation steps required, as well as the CVE. It should be noted that this requires manual steps despite the words “enabled in the August SU”, you have to actually go and run a script or manually activate Extended Protection in Exchange/IIS to get the benefit. I’m not sure if this is something that everyone will do, despite Microsoft’s efforts to document it.&lt;/p&gt;
+
+&lt;h4 id=&quot;how-does-this-mitigation-work&quot;&gt;How does this Mitigation Work?&lt;/h4&gt;
+
+&lt;p&gt;This mitigation makes use of &lt;a href=&quot;https://learn.microsoft.com/en-us/iis/configuration/system.webserver/security/authentication/windowsauthentication/extendedprotection/&quot;&gt;Windows Extended Protection&lt;/a&gt;, which aims to prevent MITM and Relay attacks by utilising Channel Binding Tokens in TLS connections to bind the authentication to a channel (i.e. TLS connection), as described in &lt;a href=&quot;https://www.rfc-editor.org/rfc/rfc5929&quot;&gt;RFC 5929&lt;/a&gt; and &lt;a href=&quot;https://www.rfc-editor.org/rfc/rfc5056&quot;&gt;RFC5056&lt;/a&gt;.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Extended Protection for Authentication (EPA) has actually been around for a while and is supported &lt;a href=&quot;https://msrc-blog.microsoft.com/2009/12/08/extended-protection-for-authentication/&quot;&gt;since Windows Vista&lt;/a&gt;. and is already used for hardening WinRM. Perhaps I’ll revisit this another day.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;The way the CBT checking works, in simple terms is like this:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;First the client makes a TLS connection to the server, and hashes the server’s certificate.&lt;/li&gt;
+  &lt;li&gt;In the authentication message (i.e. NTLM), it sends this hash to the server. This is the Channel Binding Token.&lt;/li&gt;
+  &lt;li&gt;Now the server can check this token and see if the certificate hash matches that of the server.&lt;/li&gt;
+  &lt;li&gt;If not then the request has either been modified since the client generated the authentication message OR the authentication message was not generated for this server (i.e. it was generated for a MITM server).&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;So at a high-level, if a client is coerced to send an authentication message to a rogue server, that rogue server would not be able to replay that authentication message, since the CBT will contain the hash of the attacker’s server and &lt;em&gt;not&lt;/em&gt; the target server.&lt;/p&gt;
+
+&lt;p&gt;But surely an attacker could just remove the CBT before forwarding it onto the target server? (Un)forunately not. This data is protected by the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;NTProofStr&lt;/code&gt; and so cannot be tampered with without knowing the user’s password.&lt;/p&gt;
+
+&lt;p&gt;What about if the client doesn’t support Channel Binding and thus never sends CBT data in the first place? Well in this case, the server can be configured in three modes:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Off&lt;/code&gt; - No Extended Protection is enabled. Whether the client sends a CBT or not, it is ignored.&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Accept&lt;/code&gt; - IIS will accept clients that support CBT and will perform checks, however if the client does not support EPA, requests will still be accepted.&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Required&lt;/code&gt; - IIS enforces CBT checking. If the client doesn’t send CBT data, the request is denied.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;If you’d like to know more about CBT, SPNs and how they affect NTLM relaying, I highly recommend &lt;a href=&quot;https://en.hackndo.com/ntlm-relay/&quot;&gt;this article&lt;/a&gt; by &lt;a href=&quot;https://twitter.com/HackAndDo&quot;&gt;@HackAndDo&lt;/a&gt;, which explains the concepts better than I could.&lt;/p&gt;
+
+&lt;p&gt;To verify my understanding. I made this &lt;a href=&quot;https://gist.github.com/rxwx/8476acf1f2ca8727c8d356ea26291354&quot;&gt;quick script&lt;/a&gt;), which just hooks the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ntlm-auth&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;requests-ntlm&lt;/code&gt; Python modules so that we can dump out the CBT data. Using this we can see that when using CBT, the MD5 hash of the server’s certificate is sent in the NTLM auth data.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/cbt-data-dump.png&quot; alt=&quot;Dumping CBT Data from NTLM Auth Request with Python&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;So now we know a little bit about EPA and CBT, let’s have a look at how this is implemented in Microsoft Exchange. According to the &lt;a href=&quot;https://microsoft.github.io/CSS-Exchange/Security/Extended-Protection/&quot;&gt;Microsoft CSS-Exchange documentation&lt;/a&gt;, to enable Extended Protection, you need to run the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ExchangeExtendedProtectionManagement.ps1&lt;/code&gt; script.&lt;/p&gt;
+
+&lt;p&gt;There are some pre-requisites to enable first, but once you’ve run the script it should deploy the &lt;em&gt;recommended&lt;/em&gt; configuration for Exchange.&lt;/p&gt;
+
+&lt;p&gt;So now we’ve enabled Extended Protection. Let’s have a look at the configuration with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ExchangeExtendedProtectionManagement.ps1 -ShowExtendedProtection&lt;/code&gt;:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/epa-settings.png&quot; alt=&quot;EPA Default Settings&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Looking at the above we can see that Extended Protection is set to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Require&lt;/code&gt; for many of the Frontend and Backend services. For example MAPI is set to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Require&lt;/code&gt;, meaning that CBT checks should always be enforced. Let’s do a quick test with and without CBT to verify our understanding:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/epa-mapi-test.png&quot; alt=&quot;Requesting MAPI with and without CBT&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Nice! So far so good. However, if we look at Autodiscover, we can see it’s set to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;None&lt;/code&gt;! 😲
+Why is this bad? Well, due to the the specifc exclusion for Autodiscover, it allows us to relay to &lt;em&gt;any&lt;/em&gt; service (that supports NTLM), since our SSRF requests always come via Autodiscover, regardless of the real destination!&lt;/p&gt;
+
+&lt;h2 id=&quot;epa-for-ews&quot;&gt;EPA for EWS&lt;/h2&gt;
+
+&lt;p&gt;Additionally, as EWS and ActiveSync are currently still set to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Allow&lt;/code&gt; (equivalent of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Accept&lt;/code&gt; in the previous description) - this means that if we’re relaying from SMB, there will never be any CBT data sent by the client and relaying to those services might still be possible. However for ActiveSync this is unlikely since the &lt;a href=&quot;https://learn.microsoft.com/en-us/exchange/clients/default-virtual-directory-settings?view=exchserver-2019&quot;&gt;default authentication method is Basic&lt;/a&gt;. Let’s verify that quickly with EWS, by sending a request without CBT:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/ews-no-cbt.png&quot; alt=&quot;Sending NTLM authentication to EWS with no CBT&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;It worked! But when we try it with a modified &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ntlmrelayx.py&lt;/code&gt; we get this:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/ews-relay-fail.png&quot; alt=&quot;Failed to Relay to EWS&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;I was racking my brains for a long time trying to figure out why this did not work. But then I remembered that this was one of the examples shown in Orange’s &lt;a href=&quot;https://devco.re/blog/2022/10/19/a-new-attack-surface-on-MS-exchange-part-4-ProxyRelay/&quot;&gt;ProxyRelay blog&lt;/a&gt;!&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/proxyrelay-blog.png&quot; alt=&quot;Patch Details for CVE-2021-33768 from DEVCORE Blog&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Indeed if we look at the new code, they changed the check inside &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ProxyRequestHandler::AddProtocolSpecificHeadersToServerRequest&lt;/code&gt; to replace &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IsSytemOrMachineAccount&lt;/code&gt; with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IsSystemAccount&lt;/code&gt;, meaning that it will no longer generate an &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X-CommonAccessToken&lt;/code&gt; for the foreign Machine account and instead will raise a 400 error.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/IsSystemAccount-diff.png&quot; alt=&quot;IsSystemAccount Diff&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Actually there’s been several changes since June 2021. Including this curious change where instead of comparing the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;CommonAccess.TokenType&lt;/code&gt; of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Windows&lt;/code&gt; to the string &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Windows&lt;/code&gt;, they now compare it with the literal string of “0”.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/sept-21-access-token-type.png&quot; alt=&quot;Diff Showing September 2021 Bug&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Yet, despite these changes, I still could not get it to hit &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;AddProtocolSpecificHeadersToServerRequest&lt;/code&gt; in the debugger. It seemed to fail at the IIS authentication level during Windows Authentication, even when the Extended Protection setting was set to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Accept&lt;/code&gt;. I need to do some more investigation here, but while i was writing this, the patches got released - so I’ll probably have to come back to this another time.&lt;/p&gt;
+
+&lt;h2 id=&quot;epa-bypass-for-autodiscover&quot;&gt;EPA Bypass for Autodiscover&lt;/h2&gt;
+
+&lt;p&gt;So ActiveSync is not attackable in a default configuration, and EWS has been patched to prevent easy relaying. That just leaves the Autodiscover Frontend endpoint!&lt;/p&gt;
+
+&lt;p&gt;To summarise, Extended Protection does not currently protect against NTLM relaying to the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;/autodiscover&lt;/code&gt; endpoint and is not required for ActiveSync or EWS. So if the server is vulnerable to ProxyNotShell (CVE-2022–41040), it allows for a complete bypass of Extended Protection via Autodiscover.&lt;/p&gt;
+
+&lt;h3 id=&quot;automating-with-impacket&quot;&gt;Automating with Impacket&lt;/h3&gt;
+
+&lt;p&gt;Now that we have a strategy for relaying NTLM between two Exchange servers, a bypass for the IIS URL rewrite and a bypass of Extended Protection, let’s wrap it up in an &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ntmlrelayx&lt;/code&gt; module and take it for a spin!&lt;/p&gt;
+
+&lt;p&gt;To achieve this I had to port &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;pypsrp&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;requests&lt;/code&gt; into impacket’s &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ntlmrelayx.py&lt;/code&gt;, which involved creating a custom &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;requests&lt;/code&gt; adapter where I could supply the relayed TCP socket, and also override some functionality in &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;pypsrp&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;requests&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;urllib&lt;/code&gt; to support sending raw bytes in the HTTP request. I won’t go into the boring details here, but will release the code once folks have had a chance to install the patch.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Update&lt;/strong&gt;: Proof of Concept is available &lt;a href=&quot;https://github.com/rxwx/impacket&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Now we can run &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ntlmrelayx.py&lt;/code&gt; with the new &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;--exchange-powershell&lt;/code&gt; module and the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;--bypass&lt;/code&gt; flag and we should get some output from &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Get-Mailbox&lt;/code&gt; cmdlet, running as Domain Admin!&lt;/p&gt;
+
+&lt;div style=&quot;padding:50.68% 0 0 0;position:relative;&quot;&gt;&lt;iframe src=&quot;https://player.vimeo.com/video/763582788?h=9b82dc4491&amp;amp;badge=0&amp;amp;autopause=0&amp;amp;player_id=0&amp;amp;app_id=58479&quot; frameborder=&quot;0&quot; allow=&quot;autoplay; fullscreen; picture-in-picture&quot; allowfullscreen=&quot;&quot; style=&quot;position:absolute;top:0;left:0;width:100%;height:100%;&quot; title=&quot;proxynotshell-relay.mov&quot;&gt;&lt;/iframe&gt;&lt;/div&gt;
+&lt;script src=&quot;https://player.vimeo.com/api/player.js&quot;&gt;&lt;/script&gt;
+
+&lt;h4 id=&quot;antimalware-scan-interface-amsi&quot;&gt;Antimalware Scan Interface (AMSI)&lt;/h4&gt;
+
+&lt;p&gt;Just when I thought that all the mitigations could be bypassed, &lt;a href=&quot;https://twitter.com/testanull&quot;&gt;Jang&lt;/a&gt; messaged me to say that he couldn’t get it working with the IBM500 encoding trick. After some testing he confirmed this was due to AMSI blocking the request.&lt;/p&gt;
+
+&lt;p&gt;Indeed, when I enabled Defender in my test environment, it did block the request!&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/amsi-alert.png&quot; alt=&quot;AMSI Alert&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;In June 2021 &lt;a href=&quot;https://techcommunity.microsoft.com/t5/exchange-team-blog/more-about-amsi-integration-with-exchange-server/ba-p/2572371&quot;&gt;Microsoft added support&lt;/a&gt; for the Antimalware Scan Interface (AMSI) into Microsoft Exchange 2016 and 2019.&lt;/p&gt;
+
+&lt;p&gt;This feature works by adding an &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;HttpRequestFilteringModule&lt;/code&gt; DLL into the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;web.config&lt;/code&gt;:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/autodiscover-web-config.png&quot; alt=&quot;Autodiscover web.config file&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;If we decompile this DLL we can see that adds a &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;BeginRequest&lt;/code&gt; event handler, which calls into &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;OnBeginRequestInternal&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/OnBeginRequestInternal.png&quot; alt=&quot;OnBeginRequestInternal.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;This method passes the HTTP request to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;AmsiScanRequest&lt;/code&gt;, which in turn flattens the HTTP request data and passes it to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;AmsiScanBuffer&lt;/code&gt;. If AMSI detects malicious content, then the server will return a 400 status code.&lt;/p&gt;
+
+&lt;p&gt;Interestingly, the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;AmsiScanRequest&lt;/code&gt; code attempts to mask PII (email addresses), however this doesn’t appear to be exploitable for any bypass since this only affects the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;contentName&lt;/code&gt; parameter and not the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;buffer&lt;/code&gt; that is scanned by AMSI.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/amsi-scan-request.png&quot; alt=&quot;AmsiScanRequest&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Once I’d understood how requests were being scanned. I created a basic standalone AMSI client which replicated the code used by Exchange, and also dumped a sample buffer from &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;AmsiScanRequest&lt;/code&gt;, so that I could attempt to minimise the signature.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/amsi-buffer.png&quot; alt=&quot;Dumped AMSI Buffer&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;After a few tests, I came up with the following minmised signature. It simply checks for any occurrance of the word &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;powershell&lt;/code&gt; &lt;em&gt;after&lt;/em&gt; &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;/autodiscover.json&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/amsi-minimised.png&quot; alt=&quot;Minmised AMSI Testcase&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;A couple of things I noted was that any occurance of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;:&lt;/code&gt; before the word &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;powershell&lt;/code&gt; would break the signature, as this appears to be used to delimit headers. Additionally, any character other than &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;/&lt;/code&gt; before &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;autodiscover&lt;/code&gt; will also break the signature. However, I was not able to craft a request which satisfied either of these requirements.&lt;/p&gt;
+
+&lt;p&gt;I also had another idea. What about if we could construct an HTTP request which used the SSRF against the Frontend to construct a second SSRF targeting the backend. Whilst this bypasses AMSI on the Frontend, it still triggered on the Backend with a 400 status.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/double-ssrf.png&quot; alt=&quot;Double SSRF Attack&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;So after some limited testing I came to the conclusion that AMSI is the best mitigation (and possibly the only working one) against the ProxyNotRelay attack - other than patching of course! However it does require that you are either running Microsoft Defender or at least an AV with AMSI support. Additionally, as I demonstrated earlier, this only protects against attacks targeting the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;/powershell&lt;/code&gt; backend, so worth bearing in mind.&lt;/p&gt;
+
+&lt;h3 id=&quot;an-alternative-iis-rewrite-approach&quot;&gt;An Alternative IIS Rewrite Approach&lt;/h3&gt;
+
+&lt;p&gt;I had this idea, which I posted in a &lt;a href=&quot;https://twitter.com/buffaloverflow/status/1581690003339767808&quot;&gt;Twitter thread&lt;/a&gt;. Instead of trying to rewrite IIS requests on the Frontend, why not do it on the backend instead? That way we have more control of the data, and can process things like headers that are sent by the Frontend, for example.&lt;/p&gt;
+
+&lt;p&gt;The idea is basically that instead of trying to block-list bad requests, we can instead allow-list based on the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;msExchProxyUri&lt;/code&gt; which is sent by the Frontend.&lt;/p&gt;
+
+&lt;p&gt;The concept is that the Frontend will send the URL that was visited on the Frontend in this header and send it to the Backend. If we set an IIS rewrite rule on the Backend to detect when the Frontend URI is different from the Backend, we can detect SSRF and block the request. This works because, for example, a request to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;/autodiscover/autodiscover.json&lt;/code&gt; on the Frontend would send a header like:&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;msExchProxyUri: https://exchange.corp.local/autodiscover/autodiscover.json
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;So if we write an IIS rewrite rule on the Backend &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;/powershell&lt;/code&gt; Virtual Directory, which denies anything that doesn’t start with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;lt;url&amp;gt;/powershell&lt;/code&gt; then we can create an effective SSRF protection without worrying about request encoding.&lt;/p&gt;
+
+&lt;p&gt;The caveat is that I haven’t tried this in a production environment, so YMMV!&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/media/backend-rewrite.jpg&quot; alt=&quot;IIS Backend Rewrite&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;Note 09/11/22 - Indeed it seems like MS implemented something similar to this directly within Exchange to detect cross Virtual Directory requests&lt;/em&gt;.&lt;/p&gt;
+
+&lt;h3 id=&quot;the-patches&quot;&gt;The Patches&lt;/h3&gt;
+
+&lt;p&gt;I originally started writing this post before the patches were released, but these were finally released by Microsoft on the 8th November 2022, so instead of worrying about mitigations, go ahead and install the official patches instead!&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;https://msrc.microsoft.com/update-guide/vulnerability/CVE-2022-41082&lt;/li&gt;
+  &lt;li&gt;https://msrc.microsoft.com/update-guide/vulnerability/CVE-2022-41040&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;I’ll do a follow-up post on the patch diffing and RCE write-up ;)&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;e756b455fc01d6a9bfe9b1f4382969db&lt;/code&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;future-attacks&quot;&gt;&lt;strong&gt;Future Attacks&lt;/strong&gt;&lt;/h3&gt;
+
+&lt;p&gt;Orange already alluded to this but IIS (web) services isn’t the only network accessible services exposed by Exchange. We’ve already seen a relay attack demonstrated against DAG. I think there will be more vulnerabilities like this in the future.&lt;/p&gt;
+
+</content>
+ </entry>
+ 
+
+</feed>
+
+
+      </div>
+    </main><footer class="site-footer">
+  <div class="wrapper">
+    <div class="credits"><a href="https://github.com/bitbrain/jekyll-dash">dash</a> theme for Jekyll by <a href="https://github.com/bitbrain">bitbrain</a> made with <i class="fas fa-heart"></i><div class="toggleWrapper">
+    <input type="checkbox" class="dn" id="theme-toggle" onclick="modeSwitcher()" checked />
+    <label for="theme-toggle" class="toggle">
+    <span class="toggle__handler">
+      <span class="crater crater--1"></span>
+      <span class="crater crater--2"></span>
+      <span class="crater crater--3"></span>
+    </span>
+        <span class="star star--1"></span>
+        <span class="star star--2"></span>
+        <span class="star star--3"></span>
+        <span class="star star--4"></span>
+        <span class="star star--5"></span>
+        <span class="star star--6"></span>
+    </label>
+</div>
+<script type="text/javascript">
+const theme = localStorage.getItem('theme');
+
+if (theme === "light") {
+    document.documentElement.setAttribute('data-theme', 'light');
+} else {
+    document.documentElement.setAttribute('data-theme', 'dark');
+}
+const userPrefers = getComputedStyle(document.documentElement).getPropertyValue('content');
+
+function activateDarkTheme() {
+    document.getElementById('theme-toggle').checked = true;
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.classList.add('theme--dark');
+    document.documentElement.classList.remove('theme--light');
+	document.getElementById("theme-toggle").className = 'light';
+	window.localStorage.setItem('theme', 'dark');
+}
+
+function activateLightTheme() {
+    document.getElementById('theme-toggle').checked = false;
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.classList.add('theme--light');
+    document.documentElement.classList.remove('theme--dark');
+	document.getElementById("theme-toggle").className = 'dark';
+	window.localStorage.setItem('theme', 'light');
+}
+
+if (theme === "dark") {
+    activateDarkTheme();
+} else if (theme === "light") {
+    activateLightTheme();
+} else if  (userPrefers === "light") {
+    activateDarkTheme();
+} else {
+    activateDarkTheme();
+}
+
+function modeSwitcher() {
+	let currentMode = document.documentElement.getAttribute('data-theme');
+	if (currentMode === "dark") {
+	    activateLightTheme();
+	} else {
+	    activateDarkTheme();
+	}
+}
+</script></div>
+  </div>
+</footer>
+
+
+<script>
+      window.FontAwesomeConfig = {
+        searchPseudoElements: true
+      }
+    </script>
+  </body>
+
+</html>
